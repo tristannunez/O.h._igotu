@@ -36,7 +36,10 @@ B2_1 <-extracted.list[[2]]
 B2 <- rbind(B2_0, B2_1)
 
 # time tag was deployed
-start_time <- as.POSIXct(strptime("2017-02-14 07:58:00", "%Y-%m-%d %H:%M:%S", tz="America/Los_Angeles"), tz="America/Los_Angeles")
+# this clearly includes points prior to deployment if use "2017-02-14 07:58:00" as the start time
+# keeping it at 09:30 until clarify the time zone issue
+# need to confirm the timezone in which the units are recording
+start_time <- as.POSIXct(strptime("2017-02-14 09:30:00", "%Y-%m-%d %H:%M:%S", tz="America/Los_Angeles"), tz="America/Los_Angeles")
 index<- B2$unit.time.POSIXct > start_time
 B2_on <- B2[index,]
 
@@ -106,4 +109,45 @@ max(S[S>0])
 
 dT <- as.numeric(diff(Simp$T))*60 # this gives change in time with each step 
 V <- S/dT # this gives velocity 
+
+#  comparing time of day 
+
+deer.utm$day <- day(deer.utm$unit.time.POSIXct)
+deer.utm$hour <- hour(deer.utm$unit.time.POSIXct)
+# general relationship of velocity to time of day
+plot(log(V[V!=0])~ deer.utm$hour[-1][V!=0])
+
+# set up two-panel graphic device
+par(mfrow=c(1,2))
+# plot by day of month
+plot(deer.utm, col=as.numeric(deer.utm$day), pch=".")
+
+# plot by time of day (quick way of doing this) 
+deer.utm.night <- deer.utm[deer.utm$hour>= 20 & deer.utm$hour <=24,]
+deer.utm.earlyam <- deer.utm[deer.utm$hour>= 0 & deer.utm$hour <= 5,]
+deer.utm.am <- deer.utm[deer.utm$hour>=6  & deer.utm$hour <=8,]
+deer.utm.day <- deer.utm[deer.utm$hour>=9 & deer.utm$hour <=16,]
+deer.utm.eve <- deer.utm[deer.utm$hour>=17 & deer.utm$hour <=19,]
+
+plot(deer.utm, col="white")
+plot(deer.utm.night, add=T, pch=".")
+plot(deer.utm.earlyam, add=T, col="green", pch=".")
+plot(deer.utm.am, add=T, col="blue", pch=".")
+plot(deer.utm.day, add=T, col="orange", pch=".")
+plot(deer.utm.eve, add=T, col="purple", pch=".")
+# turn off graphic device
+dev.off()
+
+# classify time of day in the spdf
+deer.utm$tod<-rep("unclassified", length(deer.utm$unit.time.POSIXct))
+deer.utm$tod[deer.utm$hour>= 20 & deer.utm$hour <=24]<- "night_20_24"
+deer.utm$tod[deer.utm$hour>= 0 & deer.utm$hour <= 5] <- "earlyam_0_5"
+deer.utm$tod[deer.utm$hour>=6  & deer.utm$hour <=8] <- "dawn_6_8"
+deer.utm$tod[deer.utm$hour>=9 & deer.utm$hour <=16] <- "day_9_16"
+deer.utm$tod[deer.utm$hour>=17 & deer.utm$hour <=19]<- "dusk_17_19"
+
+# write out as shapefile - note this is in utm unlike the other shapefiles
+writeOGR(deer.utm, dsn="./shapefiles" ,layer="B2_utm_tod", driver="ESRI Shapefile", overwrite_layer = T)
+
+
 
